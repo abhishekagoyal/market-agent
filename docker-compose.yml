@@ -1,0 +1,29 @@
+services:
+  agent:
+    build: .
+    env_file: .env
+    environment:
+      - DB_PATH=/app/data/agent.db
+    volumes:
+      - agent_data:/app/data
+      - agent_logs:/app/logs
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    env_file: .env
+    environment:
+      - DB_PATH=/app/data/agent.db
+    volumes:
+      - agent_data:/app/data
+    ports:
+      - "8501:8501"
+    command: >
+      streamlit run dashboard/app.py
+      --server.port=8501
+      --server.address=0.0.0.0
+    restart: unless-stopped
+
+volumes:
+  agent_data:
+  agent_logs:
