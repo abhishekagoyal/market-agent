@@ -1,6 +1,13 @@
 import streamlit as st
 import os, sys
 
+# Load AWS credentials from Streamlit secrets
+if hasattr(st, "secrets"):
+    os.environ["AWS_ACCESS_KEY_ID"]     = st.secrets.get("AWS_ACCESS_KEY_ID", "")
+    os.environ["AWS_SECRET_ACCESS_KEY"] = st.secrets.get("AWS_SECRET_ACCESS_KEY", "")
+    os.environ["AWS_DEFAULT_REGION"]    = st.secrets.get("AWS_DEFAULT_REGION", "us-east-1")
+    os.environ["S3_BUCKET_NAME"]        = st.secrets.get("S3_BUCKET_NAME", "market-agent-abhis")
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "agent"))
 os.environ.setdefault("DB_PATH", "data/agent.db")
 from dotenv import load_dotenv
