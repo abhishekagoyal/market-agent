@@ -1,15 +1,25 @@
 import boto3, os, json
 from datetime import datetime
 
-BUCKET = os.getenv("S3_BUCKET_NAME", "market-agent-abhis")
+BUCKET = "market-agent-abhis"
+
+def _get_credentials():
+    try:
+        import streamlit as st
+        return {
+            "aws_access_key_id":     st.secrets["AWS_ACCESS_KEY_ID"],
+            "aws_secret_access_key": st.secrets["AWS_SECRET_ACCESS_KEY"],
+            "region_name":           st.secrets.get("AWS_DEFAULT_REGION", "us-east-1")
+        }
+    except Exception:
+        return {
+            "aws_access_key_id":     os.getenv("AWS_ACCESS_KEY_ID"),
+            "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
+            "region_name":           os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+        }
 
 def _get_s3():
-    return boto3.client(
-        "s3",
-        region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
-    )
+    return boto3.client("s3", **_get_credentials())
 
 def save_run(status, category="finance", articles=0, analysis="", error=""):
     s3 = _get_s3()
@@ -31,8 +41,12 @@ def save_run(status, category="finance", articles=0, analysis="", error=""):
 
 def get_runs(limit=20, category=None):
     s3 = _get_s3()
-    response = s3.list_objects_v2(Bucket=BUCKET, Prefix="runs/")
-    objects  = sorted(
+    try:
+        response = s3.list_objects_v2(Bucket=BUCKET, Prefix="runs/")
+    except Exception as e:
+        print(f"S3 error: {e}")
+        return []
+    objects = sorted(
         response.get("Contents", []),
         key=lambda x: x["Key"],
         reverse=True
@@ -47,4 +61,3 @@ def get_runs(limit=20, category=None):
         if len(runs) >= limit:
             break
     return runs
-
