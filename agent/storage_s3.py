@@ -2,7 +2,12 @@ import boto3, os, json
 from datetime import datetime
 
 BUCKET = os.getenv("S3_BUCKET_NAME", "market-agent-abhis")
-s3     = boto3.client("s3", region_name="us-east-1")
+s3 = boto3.client(
+    "s3",
+    region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+)
 
 def save_run(status, category="finance", articles=0, analysis="", error=""):
     run = {
