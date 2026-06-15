@@ -12,11 +12,13 @@ def _get_credentials():
             "region_name":           st.secrets.get("AWS_DEFAULT_REGION", "us-east-1")
         }
     except Exception:
-        return {
-            "aws_access_key_id":     os.getenv("AWS_ACCESS_KEY_ID"),
-            "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-            "region_name":           os.getenv("AWS_DEFAULT_REGION", "us-east-1")
-        }
+        aws_key    = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+        creds      = {"region_name": os.getenv("AWS_DEFAULT_REGION", "us-east-1")}
+        if aws_key and aws_secret:
+            creds["aws_access_key_id"]     = aws_key
+            creds["aws_secret_access_key"] = aws_secret
+        return creds
 
 def _get_s3():
     return boto3.client("s3", **_get_credentials())
