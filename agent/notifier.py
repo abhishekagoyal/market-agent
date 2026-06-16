@@ -21,23 +21,19 @@ def send_briefing(analysis, article_count, country="US", category="finance"):
     if not TELEGRAM_TOKEN:
         print("Telegram token not configured — skipping.")
         return
-
     from config.config_manager import load_config
     config     = load_config()
     cat_cfg    = config["countries"].get(country, {}).get("categories", {}).get(category, {})
     recipients = cat_cfg.get("telegram_recipients", [])
-
     global_ids = os.getenv("TELEGRAM_CHAT_IDS", "")
     if global_ids:
         for gid in global_ids.split(","):
             gid = gid.strip()
             if gid and not any(r["id"] == gid for r in recipients):
                 recipients.append({"name": "global", "id": gid})
-
     if not recipients:
         print("No Telegram recipients configured — skipping.")
         return
-
     cat_label = cat_cfg.get("label", category)
     msg = (
         f"Daily Briefing\n"
