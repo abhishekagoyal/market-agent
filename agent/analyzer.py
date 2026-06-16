@@ -1,28 +1,29 @@
 import os, sys, anthropic
 from dotenv import load_dotenv
-
 load_dotenv()
-sys.path.insert(0, os.path.dirname(__file__))
-from categories import CATEGORIES
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-def analyze_news(articles, category="finance"):
+def analyze_news(articles, country="US", category="finance"):
     if not articles:
         return "No articles fetched."
-
-    cat = CATEGORIES.get(category, CATEGORIES["finance"])
+    from config.config_manager import load_config
+    config  = load_config()
+    cat_cfg = config["countries"].get(country, {}).get("categories", {}).get(category, {})
+    role    = cat_cfg.get("prompt_role", "analyst")
+    focus   = cat_cfg.get("prompt_focus", "key themes and risks")
 
     news_text = "\n\n".join([
         f"[{a['source']}] {a['title']}\n{a['summary']}"
         for a in articles
     ])
 
-    prompt = f"""You are a {cat['prompt_role']}. Review today's headlines below.
+    prompt = f"""You are a {role}. Review today's headlines below.
 
 {news_text}
 
-Write a concise briefing (200-250 words) covering: {cat['prompt_focus']}.
+Write a concise briefing (200-250 words) covering: {focus}.
 
 Institutional tone. Be specific, not generic."""
 
@@ -35,6 +36,6 @@ Institutional tone. Be specific, not generic."""
 
 if __name__ == "__main__":
     from fetcher import fetch_news
-    category = sys.argv[1] if len(sys.argv) > 1 else "finance"
-    print(f"\nAnalyzing: {CATEGORIES[category]['label']}\n")
-    print(analyze_news(fetch_news(category), category))
+    country  = sys.argv[1] if len(sys.argv) > 1 else "US"
+    category = sys.argv[2] if len(sys.argv) > 2 else "finance"
+    print(analyze_news(fetch_news(country, category), country, category))

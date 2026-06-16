@@ -1,8 +1,16 @@
-import feedparser
-from categories import CATEGORIES
+import feedparser, sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-def fetch_news(category="finance", max_per_feed=5):
-    feeds = CATEGORIES.get(category, CATEGORIES["finance"])["feeds"]
+def fetch_news(country="US", category="finance", max_per_feed=5):
+    from config.config_manager import load_config
+    config = load_config()
+    feeds = (
+        config["countries"]
+        .get(country, {})
+        .get("categories", {})
+        .get(category, {})
+        .get("feeds", {})
+    )
     articles = []
     for source, url in feeds.items():
         try:
@@ -19,8 +27,8 @@ def fetch_news(category="finance", max_per_feed=5):
     return articles
 
 if __name__ == "__main__":
-    import sys
-    category = sys.argv[1] if len(sys.argv) > 1 else "finance"
-    print(f"\nFetching: {CATEGORIES[category]['label']}\n")
-    for a in fetch_news(category):
+    country  = sys.argv[1] if len(sys.argv) > 1 else "US"
+    category = sys.argv[2] if len(sys.argv) > 2 else "finance"
+    print(f"\nFetching: {country} / {category}\n")
+    for a in fetch_news(country, category):
         print(f"[{a['source']}] {a['title']}")

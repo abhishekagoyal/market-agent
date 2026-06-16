@@ -1,22 +1,48 @@
-import os, asyncio
+import os, asyncio, sys
 from dotenv import load_dotenv
 load_dotenv()
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
 
-async def _send(text):
+async def _send(chat_id, text):
     from telegram import Bot
     bot = Bot(token=TELEGRAM_TOKEN)
-    await bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=text)
+    await bot.send_message(chat_id=chat_id, text=text)
 
-def send_briefing(analysis, article_count):
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram not configured — skipping notification.")
+async def _send_all(recipients, text):
+    for r in recipients:
+        try:
+            await _send(r["id"], text)
+        except Exception as e:
+            print(f"Failed to send to {r.get('name', r['id'])}: {e}")
+
+def send_briefing(analysis, article_count, country="US", category="finance"):
+    if not TELEGRAM_TOKEN:
+        print("Telegram token not configured — skipping.")
         return
+
+    from config.config_manager import load_config
+    config     = load_config()
+    cat_cfg    = config["countries"].get(country, {}).get("categories", {}).get(category, {})
+    recipients = cat_cfg.get("telegram_recipients", [])
+
+    global_ids = os.getenv("TELEGRAM_CHAT_IDS", "")
+    if global_ids:
+        for gid in global_ids.split(","):
+            gid = gid.strip()
+            if gid and not any(r["id"] == gid for r in recipients):
+                recipients.append({"name": "global", "id": gid})
+
+    if not recipients:
+        print("No Telegram recipients configured — skipping.")
+        return
+
+    cat_label = cat_cfg.get("label", category)
     msg = (
-        f"Daily Market Briefing\n"
+        f"Daily Briefing\n"
+        f"{country} · {cat_label}\n"
         f"{article_count} articles analyzed\n\n"
         f"{analysis}"
     )
-    asyncio.run(_send(msg))
+    asyncio.run(_send_all(recipients, msg))

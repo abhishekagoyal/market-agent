@@ -12,14 +12,30 @@ def _get_credentials():
             "region_name":           st.secrets.get("AWS_DEFAULT_REGION", "us-east-1")
         }
     except Exception:
-        return {
-            "aws_access_key_id":     os.getenv("AWS_ACCESS_KEY_ID"),
-            "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY"),
-            "region_name":           os.getenv("AWS_DEFAULT_REGION", "us-east-1")
-        }
+        aws_key    = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+        creds      = {"region_name": os.getenv("AWS_DEFAULT_REGION", "us-east-1")}
+        if aws_key and aws_secret:
+            creds["aws_access_key_id"]     = aws_key
+            creds["aws_secret_access_key"] = aws_secret
+        return creds
 
 def _get_s3():
-    return boto3.client("s3", **_get_credentials())
+    try:
+        import streamlit as st
+        # Running in Streamlit Cloud — use secrets
+        return boto3.client(
+            "s3",
+            region_name=st.secrets.get("AWS_DEFAULT_REGION", "us-east-1"),
+            aws_access_key_id=st.secrets["AWS_ACCESS_KEY_ID"],
+            aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"]
+        )
+    except Exception:
+        # Running in Lambda — use IAM role automatically
+        return boto3.client(
+            "s3",
+            region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+        )
 
 def save_run(status, category="finance", articles=0, analysis="", error=""):
     s3 = _get_s3()
