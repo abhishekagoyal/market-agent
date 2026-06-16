@@ -2,5 +2,7 @@ FROM public.ecr.aws/lambda/python:3.11
 WORKDIR ${LAMBDA_TASK_ROOT}
 COPY requirements-lambda.txt .
 RUN pip install --no-cache-dir -r requirements-lambda.txt
-COPY agent/ ./agent/
+COPY agent/  ./agent/
+COPY config/ ./config/
+RUN mkdir -p /tmp/data
 CMD ["agent.main.handler"]
