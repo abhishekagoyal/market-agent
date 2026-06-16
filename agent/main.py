@@ -1,7 +1,8 @@
 import os, sys, logging
 from dotenv import load_dotenv
 load_dotenv()
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from fetcher    import fetch_news
 from analyzer   import analyze_news
