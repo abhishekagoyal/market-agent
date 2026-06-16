@@ -42,6 +42,7 @@ def default_config():
                 "label": "United States",
                 "flag": "🇺🇸",
                 "timezone": "America/New_York",
+                "telegram_recipients": [],
                 "categories": {
                     "finance": {
                         "label": "Finance & Markets",
@@ -97,3 +98,10 @@ def default_config():
             }
         }
     }
+def get_recipients_for_category(config, country, category):
+    country_cfg = config["countries"].get(country, {})
+    all_recipients = country_cfg.get("telegram_recipients", [])
+    return [
+        r for r in all_recipients
+        if r.get("receive_all", True) or category in r.get("categories", [])
+    ]

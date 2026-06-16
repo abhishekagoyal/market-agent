@@ -16,7 +16,7 @@ from config.config_manager import load_config, save_config
 
 st.set_page_config(page_title="Telegram", page_icon="✈️", layout="wide")
 st.title("Telegram recipients")
-st.caption("Add recipients per category. They must start your bot before receiving messages.")
+st.caption("Add recipients once and choose which categories they receive.")
 
 config    = load_config()
 countries = config.get("countries", {})
@@ -28,49 +28,86 @@ if not countries:
 country_options  = {f"{v.get('flag','')} {v.get('label',k)}": k for k, v in countries.items()}
 selected_country = st.selectbox("Country", list(country_options.keys()))
 country_key      = country_options[selected_country]
-categories       = countries[country_key].get("categories", {})
+country_cfg      = countries[country_key]
+categories       = country_cfg.get("categories", {})
+category_labels  = {k: v.get("label", k) for k, v in categories.items()}
 
-if not categories:
-    st.warning("No categories in this country yet.")
-    st.stop()
+if "telegram_recipients" not in config["countries"][country_key]:
+    config["countries"][country_key]["telegram_recipients"] = []
+    save_config(config)
 
-for cat_key, cat_cfg in categories.items():
-    recipients = cat_cfg.get("telegram_recipients", [])
-    st.subheader(f"{cat_cfg.get('label', cat_key)}")
+recipients = config["countries"][country_key].get("telegram_recipients", [])
 
-    if recipients:
-        for i, r in enumerate(recipients):
-            col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-            new_name = col1.text_input("Name", value=r.get("name",""), key=f"name_{cat_key}_{i}")
-            new_id   = col2.text_input("Chat ID", value=r.get("id",""), key=f"id_{cat_key}_{i}")
-            if col3.button("Save", key=f"save_{cat_key}_{i}"):
-                config["countries"][country_key]["categories"][cat_key]["telegram_recipients"][i] = {
-                    "name": new_name, "id": new_id
+st.divider()
+
+if recipients:
+    st.subheader(f"Recipients ({len(recipients)})")
+    for i, r in enumerate(recipients):
+        with st.expander(f"{r.get('name','Unknown')} — {r.get('id','')}"):
+            col1, col2 = st.columns(2)
+            name    = col1.text_input("Name",      value=r.get("name",""),  key=f"name_{i}")
+            chat_id = col2.text_input("Chat ID",   value=r.get("id",""),    key=f"id_{i}")
+
+            receive_all = st.checkbox(
+                "Receive all categories",
+                value=r.get("receive_all", True),
+                key=f"all_{i}"
+            )
+
+            selected_cats = []
+            if not receive_all:
+                selected_cats = st.multiselect(
+                    "Select categories",
+                    options=list(categories.keys()),
+                    default=[c for c in r.get("categories", []) if c in categories],
+                    format_func=lambda x: category_labels.get(x, x),
+                    key=f"cats_{i}"
+                )
+
+            c1, c2 = st.columns([1, 5])
+            if c1.button("Save", key=f"save_{i}"):
+                config["countries"][country_key]["telegram_recipients"][i] = {
+                    "name": name, "id": chat_id,
+                    "receive_all": receive_all,
+                    "categories": selected_cats
                 }
                 save_config(config)
                 st.success("Saved!")
                 st.rerun()
-            if col4.button("Remove", key=f"del_{cat_key}_{i}"):
-                config["countries"][country_key]["categories"][cat_key]["telegram_recipients"].pop(i)
+            if c2.button("Remove", key=f"del_{i}"):
+                config["countries"][country_key]["telegram_recipients"].pop(i)
                 save_config(config)
                 st.success("Removed!")
                 st.rerun()
-    else:
-        st.caption("No recipients yet for this category.")
+else:
+    st.info("No recipients yet. Add one below.")
 
-    with st.expander(f"Add recipient to {cat_cfg.get('label', cat_key)}"):
-        col1, col2 = st.columns(2)
-        add_name = col1.text_input("Name", key=f"addname_{cat_key}")
-        add_id   = col2.text_input("Telegram Chat ID", key=f"addid_{cat_key}")
-        st.caption("To get chat ID: open Telegram → search @userinfobot → send any message")
-        if st.button("Add recipient", key=f"addbtn_{cat_key}", type="primary"):
-            if add_name and add_id:
-                config["countries"][country_key]["categories"][cat_key]["telegram_recipients"].append({
-                    "name": add_name, "id": add_id
-                })
-                save_config(config)
-                st.success(f"Added {add_name}!")
-                st.rerun()
-            else:
-                st.error("Please fill in both name and chat ID.")
-    st.divider()
+st.divider()
+st.subheader("Add recipient")
+col1, col2 = st.columns(2)
+new_name = col1.text_input("Name")
+new_id   = col2.text_input("Telegram Chat ID")
+st.caption("To get chat ID: open Telegram → search @userinfobot → send any message")
+
+new_all  = st.checkbox("Receive all categories", value=True, key="new_all")
+new_cats = []
+if not new_all:
+    new_cats = st.multiselect(
+        "Select categories",
+        options=list(categories.keys()),
+        format_func=lambda x: category_labels.get(x, x),
+        key="new_cats"
+    )
+
+if st.button("Add recipient", type="primary"):
+    if new_name and new_id:
+        config["countries"][country_key]["telegram_recipients"].append({
+            "name": new_name, "id": new_id,
+            "receive_all": new_all,
+            "categories": new_cats
+        })
+        save_config(config)
+        st.success(f"Added {new_name}!")
+        st.rerun()
+    else:
+        st.error("Please fill in both name and chat ID.")
