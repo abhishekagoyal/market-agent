@@ -1,5 +1,6 @@
 import streamlit as st
 import os, sys
+import boto3
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 os.environ.setdefault("S3_BUCKET_NAME", "market-agent-abhis")
@@ -13,6 +14,24 @@ except Exception:
 from dotenv import load_dotenv
 load_dotenv()
 from config.config_manager import load_config, save_config
+
+def delete_eventbridge_rule(country_key: str, cat_key: str):
+    """Remove EventBridge rule and its Lambda target for a given country+category."""
+    rule_name = f"market-agent-{country_key}-{cat_key}"
+    region    = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+    client    = boto3.client("events", region_name=region)
+    try:
+        # Must remove targets before deleting the rule
+        targets = client.list_targets_by_rule(Rule=rule_name)
+        target_ids = [t["Id"] for t in targets.get("Targets", [])]
+        if target_ids:
+            client.remove_targets(Rule=rule_name, Ids=target_ids)
+        client.delete_rule(Name=rule_name)
+        return True, rule_name
+    except client.exceptions.ResourceNotFoundException:
+        return False, rule_name   # rule didn't exist — that's fine
+    except Exception as e:
+        return False, str(e)
 
 st.set_page_config(page_title="Categories", page_icon="📂", layout="wide")
 st.title("Categories")
@@ -52,6 +71,13 @@ for cat_key, cat_cfg in list(categories.items()):
             st.success("Saved!")
             st.rerun()
         if c2.button("Delete", key=f"del_{cat_key}", type="secondary"):
+            # 1. Delete EventBridge rule first
+            ok, info = delete_eventbridge_rule(country_key, cat_key)
+            if ok:
+                st.info(f"EventBridge rule `{info}` removed.")
+            else:
+                st.warning(f"No EventBridge rule found for `{info}` (already gone or never created).")
+            # 2. Remove from S3 config
             del config["countries"][country_key]["categories"][cat_key]
             save_config(config)
             st.success(f"Deleted {label}")
