@@ -17,11 +17,16 @@ from config.config_manager import load_config, save_config
 
 def delete_eventbridge_rule(country_key: str, cat_key: str):
     """Remove EventBridge rule and its Lambda target for a given country+category."""
-    rule_name = f"market-agent-{country_key}-{cat_key}"
+    rule_name = f"market-agent-{country_key.lower()}-{cat_key.lower()}"
     region    = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
-    client    = boto3.client("events", region_name=region)
+    key       = os.environ.get("AWS_ACCESS_KEY_ID")
+    secret    = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    kwargs    = {"region_name": region}
+    if key and secret:
+        kwargs["aws_access_key_id"]     = key
+        kwargs["aws_secret_access_key"] = secret
+    client = boto3.client("events", **kwargs)
     try:
-        # Must remove targets before deleting the rule
         targets = client.list_targets_by_rule(Rule=rule_name)
         target_ids = [t["Id"] for t in targets.get("Targets", [])]
         if target_ids:
@@ -29,7 +34,7 @@ def delete_eventbridge_rule(country_key: str, cat_key: str):
         client.delete_rule(Name=rule_name)
         return True, rule_name
     except client.exceptions.ResourceNotFoundException:
-        return False, rule_name   # rule didn't exist — that's fine
+        return False, rule_name
     except Exception as e:
         return False, str(e)
 
